@@ -85,9 +85,6 @@ setTimeout(function() {
     </div>
 </nav>
 
-<!-- Rest of the index.php content remains the same -->
-
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const filterButtons = document.querySelectorAll('.filter-btn');
@@ -183,6 +180,15 @@ document.addEventListener('DOMContentLoaded', function () {
     background-color: #ef4444;
     color: white;
     animation: pulse 2s infinite;
+}
+
+.completion-date {
+    background-color: #3b82f6;
+    color: white;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    margin-left: 8px;
 }
 
 @keyframes pulse {
@@ -284,20 +290,18 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <span class="status-badge status-complete">
                                         <i class="fas fa-check-circle"></i> Complete
                                     </span>
+                                    <?php if ($row['completed_at']): ?>
+                                        <span class="completion-date">
+                                            <i class="fas fa-clock"></i> Completed: <?php echo date('M d, Y H:i', strtotime($row['completed_at'])); ?>
+                                        </span>
+                                    <?php endif; ?>
                                 <?php elseif ($isOverdue): ?>
                                     <span class="status-badge status-overdue">
-                                        <i class="fas fa-exclamation-triangle"></i> Overdue
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                                                                Overdue
                                     </span>
                                 <?php endif; ?>
                             </div>
-                        <?php else: ?>
-                            <?php if ($row['is_completed']): ?>
-                                <div class="task-due">
-                                    <span class="status-badge status-complete">
-                                        <i class="fas fa-check-circle"></i> Complete
-                                    </span>
-                                </div>
-                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                     <div class="task-actions">
@@ -316,60 +320,68 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
             <?php endforeach; ?>
             
-            <?php if (!empty($completedTasks)): ?>
-             
-                
-                
-                <?php foreach ($completedTasks as $row): ?>
-                    <div class="task-card completed" data-priority="<?php echo $row['priority']; ?>">
-                        <div class="task-header">
-                            <h3><?php echo htmlspecialchars($row['title']); ?></h3>
-                            <span class="priority-badge <?php echo $row['priority']; ?>">
-                                <?php echo ucfirst($row['priority']); ?>
-                            </span>
-                        </div>
-                        <div class="task-body">
-                            <p><?php echo nl2br(htmlspecialchars($row['description'])); ?></p>
-                            <?php if ($row['due_date']): ?>
+            
+            <!-- Tampilkan completed tasks -->
+            <?php foreach ($completedTasks as $row): ?>
+                <div class="task-card <?php echo $row['is_completed'] ? 'completed' : ''; ?>" data-priority="<?php echo $row['priority']; ?>">
+                    <div class="task-header">
+                        <h3><?php echo htmlspecialchars($row['title']); ?></h3>
+                        <span class="priority-badge <?php echo $row['priority']; ?>">
+                            <?php echo ucfirst($row['priority']); ?>
+                        </span>
+                    </div>
+                    <div class="task-body">
+                        <p><?php echo nl2br(htmlspecialchars($row['description'])); ?></p>
+                        <?php if ($row['due_date']): ?>
+                            <div class="task-due">
+                                <i class="fas fa-calendar-alt"></i>
+                                Due: <?php echo date('M d, Y', strtotime($row['due_date'])); ?>
+                                
+                                <span class="status-badge status-complete">
+                                    <i class="fas fa-check-circle"></i> Complete
+                                </span>
+                                
+                                <?php if ($row['completed_at']): ?>
+                                    <span class="completion-date">
+                                        <i class="fas fa-clock"></i> Completed: <?php echo date('M d, Y H:i', strtotime($row['completed_at'])); ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                        <?php else: ?>
+                            <!-- Jika tidak ada due date, tetap tampilkan completion date -->
+                            <?php if ($row['completed_at']): ?>
                                 <div class="task-due">
-                                    <i class="fas fa-calendar-alt"></i>
-                                    Due: <?php echo date('M d, Y', strtotime($row['due_date'])); ?>
                                     <span class="status-badge status-complete">
                                         <i class="fas fa-check-circle"></i> Complete
                                     </span>
-                                </div>
-                            <?php else: ?>
-                                <div class="task-due">
-                                    <span class="status-badge status-complete">
-                                        <i class="fas fa-check-circle"></i> Complete
+                                    <span class="completion-date">
+                                        <i class="fas fa-clock"></i> Completed: <?php echo date('M d, Y H:i', strtotime($row['completed_at'])); ?>
                                     </span>
                                 </div>
                             <?php endif; ?>
-                        </div>
-                        <div class="task-actions">
-                            <a href="complete.php?id=<?php echo $row['id']; ?>" 
-                                class="btn btn-action complete-btn bg-yellow-500 text-white">
+                        <?php endif; ?>
+                    </div>
+                    <div class="task-actions">
+                        <a href="complete.php?id=<?php echo $row['id']; ?>" 
+                            class="btn btn-action complete-btn bg-yellow-500 text-white">
                             <i class="fas fa-undo"></i> Undo
                         </a>
 
-                            <!-- Tombol Edit disabled untuk completed tasks -->
-                            <span class="btn btn-action btn-disabled" title="Cannot edit completed tasks">
-                                <i class="fas fa-edit"></i> Edit
-                            </span>
-                            
-                            <a href="delete.php?id=<?php echo $row['id']; ?>" class="btn btn-action delete-btn" onclick="return confirm('Are you sure you want to delete this task?');">
-                                <i class="fas fa-trash"></i> Delete
-                            </a>
-                        </div>
+                        <a href="edit.php?id=<?php echo $row['id']; ?>" class="btn btn-action edit-btn btn-disabled" onclick="return confirm('This task is completed. Are you sure you want to edit it?');">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <a href="delete.php?id=<?php echo $row['id']; ?>" class="btn btn-action delete-btn" onclick="return confirm('Are you sure you want to delete this completed task?');">
+                            <i class="fas fa-trash"></i> Delete
+                        </a>
                     </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
             
         <?php else: ?>
             <div class="empty-state">
                 <i class="fas fa-clipboard-list"></i>
                 <h3>No tasks found</h3>
-                                <p>Add your first task by clicking the "Add New Task" button</p>
+                <p>Add your first task by clicking the "Add New Task" button</p>
             </div>
         <?php endif; ?>
     </div>
@@ -437,4 +449,5 @@ include 'includes/footer.php';
 // Tutup koneksi
 $conn->close();
 ?>
+
 
