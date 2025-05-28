@@ -6,22 +6,23 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-
-
-
 // Include konfigurasi database
 require_once 'config/database.php';
 
-
-
-// Query untuk mendapatkan semua todo
-$query = "SELECT * FROM todos ORDER BY 
+// Query untuk mendapatkan todo milik user yang sedang login
+$user_id = $_SESSION['user_id'];
+$query = "SELECT * FROM todos WHERE user_id = ? ORDER BY 
+          is_completed ASC,
           CASE priority 
               WHEN 'high' THEN 1 
               WHEN 'medium' THEN 2 
               WHEN 'low' THEN 3 
           END, due_date ASC";
-$result = $conn->query($query);
+
+$stmt = $conn->prepare($query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
 
 // Include header
 include 'includes/header.php';
@@ -31,10 +32,40 @@ include 'includes/header.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Todo List - Dashboard</title>
 </head>
 <body>
     <script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Notifikasi sukses -->
+<?php if (isset($_GET['success'])): ?>
+<div id="success-notification" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+    <div class="flex items-center">
+        <i class="fas fa-check-circle mr-2"></i>
+        <span>Task saved successfully!</span>
+        <button onclick="closeNotification()" class="ml-4 text-white hover:text-gray-200">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+</div>
+
+<script>
+function closeNotification() {
+    document.getElementById('success-notification').style.display = 'none';
+}
+
+// Auto close after 3 seconds
+setTimeout(function() {
+    const notification = document.getElementById('success-notification');
+    if (notification) {
+        notification.style.opacity = '0';
+        setTimeout(function() {
+            notification.style.display = 'none';
+        }, 300);
+    }
+}, 3000);
+</script>
+<?php endif; ?>
 
 <nav class="bg-white shadow-lg p-4 mb-6 flex justify-between items-center">
     <h1 class="text-xl font-bold text-gray-800">📋 To-Do List</h1>
@@ -53,6 +84,9 @@ include 'includes/header.php';
         </div>
     </div>
 </nav>
+
+<!-- Rest of the index.php content remains the same -->
+
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -115,7 +149,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-
 <style>
 .rotate-180 {
     transform: rotate(180deg);
@@ -131,16 +164,61 @@ document.addEventListener('DOMContentLoaded', function () {
     transform: scale(1);
     display: block;
 }
-</style>
 
-<style>
-.rotate-180 {
-    transform: rotate(180deg);
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-left: 8px;
+}
+
+.status-complete {
+    background-color: #10b981;
+    color: white;
+}
+
+.status-overdue {
+    background-color: #ef4444;
+    color: white;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Style untuk tombol edit yang disabled */
+.btn-disabled {
+    background-color: #d1d5db !important;
+    color: #9ca3af !important;
+    cursor: not-allowed !important;
+    opacity: 0.5;
+}
+
+.btn-disabled:hover {
+    background-color: #d1d5db !important;
+    color: #9ca3af !important;
+}
+
+/* Separator untuk completed tasks */
+.completed-separator {
+    margin: 30px 0 20px 0;
+    padding: 10px 0;
+    border-top: 2px solid #e5e7eb;
+    text-align: center;
+    color: #6b7280;
+    font-weight: 500;
+    background-color: #f9fafb;
+    border-radius: 8px;
 }
 </style>
-
-    
-
 
 <main class="main-content">
     <div class="add-task">
@@ -166,7 +244,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
     <div class="task-list">
         <?php if ($result->num_rows > 0): ?>
-            <?php while ($row = $result->fetch_assoc()): ?>
+            <?php 
+            $tasks = [];
+            $completedTasks = [];
+            
+            // Pisahkan task berdasarkan status complete
+            while ($row = $result->fetch_assoc()) {
+                if ($row['is_completed']) {
+                    $completedTasks[] = $row;
+                } else {
+                    $tasks[] = $row;
+                }
+            }
+            
+            // Tampilkan pending tasks terlebih dahulu
+            foreach ($tasks as $row): 
+                $isOverdue = false;
+                if ($row['due_date'] && !$row['is_completed']) {
+                    $currentDate = new DateTime();
+                    $dueDate = new DateTime($row['due_date']);
+                    $isOverdue = $currentDate > $dueDate;
+                }
+            ?>
                 <div class="task-card <?php echo $row['is_completed'] ? 'completed' : ''; ?>" data-priority="<?php echo $row['priority']; ?>">
                     <div class="task-header">
                         <h3><?php echo htmlspecialchars($row['title']); ?></h3>
@@ -180,7 +279,25 @@ document.addEventListener('DOMContentLoaded', function () {
                             <div class="task-due">
                                 <i class="fas fa-calendar-alt"></i>
                                 Due: <?php echo date('M d, Y', strtotime($row['due_date'])); ?>
+                                
+                                <?php if ($row['is_completed']): ?>
+                                    <span class="status-badge status-complete">
+                                        <i class="fas fa-check-circle"></i> Complete
+                                    </span>
+                                <?php elseif ($isOverdue): ?>
+                                    <span class="status-badge status-overdue">
+                                        <i class="fas fa-exclamation-triangle"></i> Overdue
+                                    </span>
+                                <?php endif; ?>
                             </div>
+                        <?php else: ?>
+                            <?php if ($row['is_completed']): ?>
+                                <div class="task-due">
+                                    <span class="status-badge status-complete">
+                                        <i class="fas fa-check-circle"></i> Complete
+                                    </span>
+                                </div>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                     <div class="task-actions">
@@ -197,12 +314,62 @@ document.addEventListener('DOMContentLoaded', function () {
                         </a>
                     </div>
                 </div>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
+            
+            <?php if (!empty($completedTasks)): ?>
+             
+                
+                
+                <?php foreach ($completedTasks as $row): ?>
+                    <div class="task-card completed" data-priority="<?php echo $row['priority']; ?>">
+                        <div class="task-header">
+                            <h3><?php echo htmlspecialchars($row['title']); ?></h3>
+                            <span class="priority-badge <?php echo $row['priority']; ?>">
+                                <?php echo ucfirst($row['priority']); ?>
+                            </span>
+                        </div>
+                        <div class="task-body">
+                            <p><?php echo nl2br(htmlspecialchars($row['description'])); ?></p>
+                            <?php if ($row['due_date']): ?>
+                                <div class="task-due">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    Due: <?php echo date('M d, Y', strtotime($row['due_date'])); ?>
+                                    <span class="status-badge status-complete">
+                                        <i class="fas fa-check-circle"></i> Complete
+                                    </span>
+                                </div>
+                            <?php else: ?>
+                                <div class="task-due">
+                                    <span class="status-badge status-complete">
+                                        <i class="fas fa-check-circle"></i> Complete
+                                    </span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="task-actions">
+                            <a href="complete.php?id=<?php echo $row['id']; ?>" 
+                                class="btn btn-action complete-btn bg-yellow-500 text-white">
+                            <i class="fas fa-undo"></i> Undo
+                        </a>
+
+                            <!-- Tombol Edit disabled untuk completed tasks -->
+                            <span class="btn btn-action btn-disabled" title="Cannot edit completed tasks">
+                                <i class="fas fa-edit"></i> Edit
+                            </span>
+                            
+                            <a href="delete.php?id=<?php echo $row['id']; ?>" class="btn btn-action delete-btn" onclick="return confirm('Are you sure you want to delete this task?');">
+                                <i class="fas fa-trash"></i> Delete
+                            </a>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+            
         <?php else: ?>
             <div class="empty-state">
                 <i class="fas fa-clipboard-list"></i>
                 <h3>No tasks found</h3>
-                <p>Add your first task by clicking the "Add New Task" button</p>
+                                <p>Add your first task by clicking the "Add New Task" button</p>
             </div>
         <?php endif; ?>
     </div>
@@ -260,8 +427,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <script src="assets/js/script.js"></script>
 
-
-
 </body>
 </html>
 
@@ -272,3 +437,4 @@ include 'includes/footer.php';
 // Tutup koneksi
 $conn->close();
 ?>
+

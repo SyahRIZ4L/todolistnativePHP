@@ -13,13 +13,18 @@
     </div>
     <?php unset($_SESSION['flash']); ?>
     <?php endif; ?>
-
+    
     <h2 class="text-2xl font-bold mb-6 text-center">Login</h2>
+    
     <input type="hidden" name="action" value="login">
+    
     <input type="email" name="email" placeholder="Email" required class="w-full mb-4 p-2 border rounded">
+    
     <input type="password" name="password" placeholder="Password" required class="w-full mb-4 p-2 border rounded">
+    
     <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Login</button>
-    <p class="text-center mt-4 text-sm">Belum punya akun? <a href="register.php" class="text-blue-600">Daftar</a></p>
+    
+    <p class="text-center mt-4 text-sm">Belum punya akun? <a href="register.php" class="text-blue-600">Register</a></p>
   </form>
 </body>
 </html>
